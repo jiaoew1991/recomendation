@@ -1,0 +1,21 @@
+{
+  "id": "default",
+  "description": "Default settings",
+  "engineFactory": "org.template.similar.SimilarityEngine",
+  "datasource": {
+    "params" : {
+      "appId": 2
+    }
+  },
+  "algorithms": [
+    {
+      "name": "als",
+      "params": {
+        "rank": 10,
+        "numIterations" : 20,
+        "like": 4.0,
+        "dislike": 1.0
+      }
+    }
+  ]
+}
