@@ -1,7 +1,7 @@
 import io.prediction.controller.IEngineFactory
 import io.prediction.controller.Engine
 
-case class Query(items: List[String], num: Int, profiles: Option[Set[String]],
+case class Query(userId: String, items: List[String], num: Int, profiles: Option[Set[String]],
   whiteList: Option[Set[String]], blackList: Option[Set[String]]) extends Serializable
 
 case class PredictedResult(itemScores: Array[ItemScore]) extends Serializable

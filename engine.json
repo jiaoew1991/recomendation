@@ -1,10 +1,10 @@
 {
   "id": "default",
   "description": "Default settings",
-  "engineFactory": "org.template.similar.SimilarityEngine",
+  "engineFactory": "SimilarityEngine",
   "datasource": {
     "params" : {
-      "appId": 2
+      "appId": 1
     }
   },
   "algorithms": [
