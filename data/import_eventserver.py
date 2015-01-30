@@ -18,7 +18,7 @@ def import_events(client, dir):
     # generate 10 users, with user ids u1,u2,....,u10
     with open(os.path.join(dir, "user.txt"), 'r') as user_file:
         for user_line in user_file:
-            user_data = user_line.split('\t')
+            user_data = user_line.rstrip('\r\n').split('\t')
             user_id = user_data[0]
             print "Set user", user_id
             client.create_event(
@@ -38,7 +38,7 @@ def import_events(client, dir):
 
     with open(os.path.join(dir, 'like.txt'), 'r') as like_file:
         for like_line in like_file:
-            like_data = like_line.split('\t')
+            like_data = like_line.rstrip('\r\n').split('\t')
             user_id = like_data[0]
             item_id = like_data[1]
             print "User", user_id ,"like item", item_id
