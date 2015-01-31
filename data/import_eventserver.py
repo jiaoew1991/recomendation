@@ -68,4 +68,4 @@ if __name__ == '__main__':
         url=args.url,
         threads=5,
         qsize=500)
-    import_events(client, args.url)
+    import_events(client, args.dir)
