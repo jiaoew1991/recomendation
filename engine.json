@@ -4,7 +4,7 @@
   "engineFactory": "SimilarityEngine",
   "datasource": {
     "params" : {
-      "appId": 1,
+      "appId": 3,
       "like": 4.0,
       "dislike": 1.0
     }

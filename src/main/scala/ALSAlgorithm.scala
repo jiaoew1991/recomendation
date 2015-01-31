@@ -8,7 +8,7 @@ import org.apache.spark.rdd.RDD
 
 import scala.collection.mutable.PriorityQueue
 
-case class ALSAlgorithmParams(rank: Int, numIterations: Int, lambda: Double) extends Params
+case class ALSAlgorithmParams(rank: Int, numIterations: Int) extends Params
 
 class ALSModel(
                 val productFeatures: RDD[(Int, Array[Double])],
@@ -103,7 +103,6 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams) extends PAlgorithm[PreparedData, 
       s"mllibRatings cannot be empty." +
         " Please check if your events contain valid user and item ID.")
     val m = ALS.trainImplicit(mllibRatings, ap.rank, ap.numIterations)
-    //    m.recommendProducts()
 
     new ALSModel(
       productFeatures = m.productFeatures,
