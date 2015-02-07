@@ -1,7 +1,7 @@
 {
   "id": "default",
   "description": "Default settings",
-  "engineFactory": "SimilarityEngine",
+  "engineFactory": "com.jiaoew.recommander.SimilarityEngine",
   "datasource": {
     "params" : {
       "appId": 3,
