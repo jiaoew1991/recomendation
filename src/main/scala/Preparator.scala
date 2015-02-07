@@ -1,3 +1,5 @@
+package com.jiaoew.recommander
+
 import io.prediction.controller.PPreparator
 
 import org.apache.spark.SparkContext

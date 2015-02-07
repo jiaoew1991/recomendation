@@ -1,48 +1,15 @@
+package com.jiaoew.recommander
+
 import grizzled.slf4j.Logger
-import io.prediction.controller.{IPersistentModel, IPersistentModelLoader, PAlgorithm, Params}
+import io.prediction.controller.{PAlgorithm, Params}
 import io.prediction.data.storage.BiMap
-import org.apache.spark.SparkContext
 import org.apache.spark.SparkContext._
-import org.apache.spark.mllib.recommendation.{ALS, Rating => MLlibRating}
-import org.apache.spark.rdd.RDD
+import org.apache.spark.mllib.recommendation.{ALS, ALSModel, Rating => MLlibRating}
+import org.jblas.DoubleMatrix
 
 import scala.collection.mutable.PriorityQueue
 
-case class ALSAlgorithmParams(rank: Int, numIterations: Int) extends Params
-
-class ALSModel(
-                val productFeatures: RDD[(Int, Array[Double])],
-                val itemStringIntMap: BiMap[String, Int],
-                val items: Map[Int, Item]
-                ) extends IPersistentModel[ALSAlgorithmParams] with Serializable {
-
-  @transient lazy val itemIntStringMap = itemStringIntMap.inverse
-
-  def save(id: String, params: ALSAlgorithmParams, sc: SparkContext): Boolean = {
-    productFeatures.saveAsObjectFile(s"/tmp/${id}/productFeatures")
-    sc.parallelize(Seq(itemStringIntMap)).saveAsObjectFile(s"/tmp/${id}/itemStringIntMap")
-    sc.parallelize(Seq(items)).saveAsObjectFile(s"/tmp/${id}/items")
-    true
-  }
-
-  override def toString = {
-    s" productFeatures: [${productFeatures.count()}]" +
-      s"(${productFeatures.take(2).toList}...)" +
-      s" itemStringIntMap: [${itemStringIntMap.size}]" +
-      s"(${itemStringIntMap.take(2).toString}...)]" +
-      s" items: [${items.size}]" +
-      s"(${items.take(2).toString}...)]"
-  }
-}
-
-object ALSModel extends IPersistentModelLoader[ALSAlgorithmParams, ALSModel] {
-  def apply(id: String, params: ALSAlgorithmParams, sc: Option[SparkContext]) = {
-    new ALSModel(
-      productFeatures = sc.get.objectFile(s"/tmp/${id}/productFeatures"),
-      itemStringIntMap = sc.get.objectFile[BiMap[String, Int]](s"/tmp/${id}/itemStringIntMap").first,
-      items = sc.get.objectFile[Map[Int, Item]](s"/tmp/${id}/items").first)
-  }
-}
+case class ALSAlgorithmParams(rank: Int, numIterations: Int, similarSize: Int) extends Params
 
 /**
  * Use ALS to build item x feature matrix
@@ -104,54 +71,38 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams) extends PAlgorithm[PreparedData, 
         " Please check if your events contain valid user and item ID.")
     val m = ALS.trainImplicit(mllibRatings, ap.rank, ap.numIterations)
 
-    new ALSModel(
-      productFeatures = m.productFeatures,
-      itemStringIntMap = itemStringIntMap,
-      items = items
-    )
+    new ALSModel(m.rank, m.userFeatures, m.productFeatures, itemStringIntMap, items)
   }
 
   def predict(model: ALSModel, query: Query): PredictedResult = {
 
-    // convert items to Int index
-    val queryList: Set[Int] = query.items.map(model.itemStringIntMap.get(_))
-      .flatten.toSet
-
-    val queryFeatures: Vector[Array[Double]] = queryList.toVector.par
-      .map { item => model.productFeatures.lookup(item).head}.seq
-
-    val whiteList: Option[Set[Int]] = query.whiteList.map(set =>
-      set.map(model.itemStringIntMap.get(_)).flatten
-    )
     val blackList: Option[Set[Int]] = query.blackList.map(set =>
       set.map(model.itemStringIntMap.get(_)).flatten
     )
 
-    val ord = Ordering.by[(Int, Double), Double](_._2).reverse
-
-    val indexScores: Array[(Int, Double)] = if (queryFeatures.isEmpty) {
-      logger.info(s"No valid items in ${query.items}.")
-      Array[(Int, Double)]()
-    } else {
-      model.productFeatures.mapValues { f =>
-        queryFeatures.map(qf => cosine(qf, f)).reduce(_ + _)
-      }.collect()
+    val toFeatures = model.itemStringIntMap.get(query.userId).map { userInt =>
+      model.userFeatures.lookup(userInt).head
+    } getOrElse {
+      // or find similar user's recommendation
+      val similar = similarUser(model.items, query.profiles.getOrElse(Set.empty[Double])).
+        map(pair => model.userFeatures.lookup(pair._1).head).
+        reduce(_.zip(_).map(p => p._1 + p._2)).map(_ / ap.similarSize)
+      logger.debug(s"similar features is $similar")
+      similar
     }
 
-    val filteredScore = indexScores.view.filter { case (i, v) =>
-      isCandidateItem(
-        i = i,
-        items = model.items,
-        profiles = query.profiles,
-        queryList = queryList,
-        whiteList = whiteList,
-        blackList = blackList
-      )
+    val recommendVector = new DoubleMatrix(toFeatures)
+    val scored = model.productFeatures.map { case (id, features) =>
+      (id, recommendVector.dot(new DoubleMatrix(features)))
     }
 
-    val topScores = getTopN(filteredScore, query.num)(ord).toArray
+    implicit val ord = Ordering.by[(Int, Double), Double](_._2)
 
-    val itemScores = topScores.map { case (i, s) =>
+    val targets = scored.filter{ case (id, score) =>
+      blackList.map(!_.contains(id)).getOrElse(true)
+    }.top(query.start + query.size).drop(query.start)
+
+    val itemScores = targets.map { case (i, s) =>
       new ItemScore(
         item = model.itemIntStringMap(i),
         score = s
@@ -161,18 +112,16 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams) extends PAlgorithm[PreparedData, 
     new PredictedResult(itemScores)
   }
 
-  private def getTopN[T](s: Seq[T], n: Int)(implicit ord: Ordering[T]): Seq[T] = {
-
-    val q = PriorityQueue()
-
-    for (x <- s) {
-      if (q.size < n)
-        q.enqueue(x)
+  private def similarUser(items: Map[Int, Item], profiles: Set[Double]) = {
+    val q = PriorityQueue[(Int, Double)]()
+    for (k <- items) {
+      if (q.size < ap.similarSize)
+        q.enqueue((k._1, featureDistance(k._2.profiles, profiles.toList)))
       else {
-        // q is full
-        if (ord.compare(x, q.head) < 0) {
+        val tmpDistance = featureDistance(k._2.profiles, profiles.toList)
+        if (tmpDistance < q.head._2) {
           q.dequeue()
-          q.enqueue(x)
+          q.enqueue((k._1, tmpDistance))
         }
       }
     }
@@ -180,40 +129,9 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams) extends PAlgorithm[PreparedData, 
     q.dequeueAll.toSeq.reverse
   }
 
-  private def cosine(v1: Array[Double], v2: Array[Double]): Double = {
-    val size = v1.size
-    var i = 0
-    var n1: Double = 0
-    var n2: Double = 0
-    var d: Double = 0
-    while (i < size) {
-      n1 += v1(i) * v1(i)
-      n2 += v2(i) * v2(i)
-      d += v1(i) * v2(i)
-      i += 1
-    }
-    d / (math.sqrt(n1) * math.sqrt(n2))
+  private def featureDistance(org: Option[List[Double]], dst: List[Double]) = {
+    org.map { lv =>
+      lv.zip(dst).map { case (a, b) => (a - b) * (a - b) }.reduce(_ + _)
+    } getOrElse Double.MaxValue
   }
-
-  private def isCandidateItem(
-                               i: Int,
-                               items: Map[Int, Item],
-                               profiles: Option[Set[String]],
-                               queryList: Set[Int],
-                               whiteList: Option[Set[Int]],
-                               blackList: Option[Set[Int]]
-                               ): Boolean = {
-    whiteList.map(_.contains(i)).getOrElse(true) &&
-      blackList.map(!_.contains(i)).getOrElse(true) &&
-      // discard items in query as well
-      (!queryList.contains(i)) &&
-      // filter profiles
-      profiles.map { cat =>
-        items(i).profiles.map { itemCat =>
-          // keep this item if has ovelap profiles with the query
-          !(itemCat.toSet.intersect(cat).isEmpty)
-        }.getOrElse(false) // discard this item if it has no profiles
-      }.getOrElse(true)
-  }
-
 }

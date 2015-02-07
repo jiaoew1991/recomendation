@@ -1,3 +1,5 @@
+package com.jiaoew.recommander
+
 import grizzled.slf4j.Logger
 import io.prediction.controller.{EmptyActualResult, EmptyEvaluationInfo, PDataSource, Params}
 import io.prediction.data.storage.Storage
@@ -37,7 +39,7 @@ class DataSource(val dsp: DataSourceParams) extends PDataSource[TrainingData, Em
     )(sc).map { case (entityId, properties) =>
       val item = try {
         // Assume categories is optional property of item.
-        Item(profiles = properties.getOpt[List[String]]("profiles"))
+        Item(profiles = properties.getOpt[List[Double]]("profiles"))
       } catch {
         case e: Exception => {
           logger.error(s"Failed to get properties ${properties} of" +
@@ -80,7 +82,7 @@ class DataSource(val dsp: DataSourceParams) extends PDataSource[TrainingData, Em
 
 case class User(profiles: Option[List[String]])
 
-case class Item(profiles: Option[List[String]])
+case class Item(profiles: Option[List[Double]])
 
 case class LikeEvent(user: String, item: String, score: Double, t: Long)
 
