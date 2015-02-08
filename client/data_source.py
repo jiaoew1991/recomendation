@@ -3,10 +3,12 @@ __author__ = 'jiaoew'
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from time import mktime
-from bson.objectid import ObjectId
 import json
 
+from bson.objectid import ObjectId
+
 from pymongo import MongoClient
+
 
 __all__ = [
     'DataSource', 'MongoDataSource'
@@ -94,7 +96,11 @@ class MongoDataSource(DataSource):
         ]
 
     def get_bounds(self):
-        json.load(open(self.feature_file))
+        """
+
+        :rtype : dict
+        """
+        return json.load(open(self.feature_file))
 
     def save_bounds(self):
         json.dump({
@@ -107,8 +113,10 @@ class MongoDataSource(DataSource):
             'verify_edu': {'up': 1, 'down': 0},
             'verify_real': {'up': 1, 'down': 0},
             'verify_avatar': {'up': 1, 'down': 0},
-            'join_time': {'up': mktime(datetime(2016, 1, 1).timetuple()), 'down': mktime(datetime(2015, 1, 1).timetuple())},
-            'birthday': {'up': mktime(datetime(2000, 1, 1).timetuple()), 'down': mktime(datetime(1990, 1, 1).timetuple())},
+            'join_time': {'up': mktime(datetime(2016, 1, 1).timetuple()),
+                          'down': mktime(datetime(2015, 1, 1).timetuple())},
+            'birthday': {'up': mktime(datetime(2000, 1, 1).timetuple()),
+                         'down': mktime(datetime(1990, 1, 1).timetuple())},
             'hometown': {'up': 1000, 'down': 0},
             'height': {'up': 210, 'down': 150},
             'weight': {'up': 100, 'down': 40},
@@ -120,16 +128,22 @@ class MongoDataSource(DataSource):
         }, open(self.feature_file, 'w'))
 
     def get_likes(self, user_id):
-        return [item['to'] for item in self.mongo['like'].find({'user': ObjectId(user_id)})]
+        return [str(item['to']) for item in self.mongo['like'].find({'user': ObjectId(user_id)})]
 
     def get_dislikes(self, user_id):
-        return [item['blocked_user'] for item in self.mongo['blockeduser'].find({'user': ObjectId(user_id)})]
+        return [str(item['blocked_user']) for item in self.mongo['blockeduser'].find({'user': ObjectId(user_id)})]
 
     def get_features(self, user_id):
-        origin_user = self.mongo['user'].find_one({'user': user_id})
-        join_time = self.mongo['user_base'].find_one(user_id)['join_time']
-        profile = self.mongo['profile'].find_one({'user': user_id})
-        stat = self.mongo['user_stat'].find_one({'user': user_id})
+        origin_user = self.mongo['user'].find_one({'user': ObjectId(user_id)})
+        join_time = self.mongo['user_base'].find_one(ObjectId(user_id))
+        join_time = 0 if not join_time else mktime(join_time['join_time'].timetuple())
+        profile = self.mongo['profile'].find_one({'user': ObjectId(user_id)})
+        stat = self.mongo['user_stat'].find_one({'user': ObjectId(user_id)})
+
+        assert origin_user is not None
+        assert profile is not None
+        assert stat is not None
+
         features = {
             'school': self.schools[origin_user['school']],
             'campus': self.campus[origin_user['campus']],
@@ -141,17 +155,17 @@ class MongoDataSource(DataSource):
             'verify_real': origin_user['verify']['real'],
             'verify_avatar': origin_user['verify']['avatar'],
             'join_time': join_time,
-            'birthday': mktime(datetime(*profile['birthday'].split('-')).timetuple()),
+            'birthday': mktime(datetime(*map(int, profile['birthday'].split('-'))).timetuple()),
             'hometown': hash(profile['hometown']) % 1000,
             'height': profile['height'],
             'weight': profile['weight'],
             'visitor_count': stat['visitor_count'],
             'like_count': stat['like_count'],
-            'follow_count': stat['follow_count'],
-            'loc_latitude': stat['loc'][0] if stat['loc_enabled'] else 0,
-            'loc_longitude': stat['loc'][1] if stat['loc_enabled'] else 0
+            'follow_count': stat['follower_count'],
+            'loc_latitude': stat['loc'][0] if stat.get('loc_enabled', False) else 0,
+            'loc_longitude': stat['loc'][1] if stat.get('loc_enabled', False) else 0
         }
         return self._normalize_features(features)
 
     def list_users(self):
-        return [item['_id'] for item in self.mongo['user_base'].find()]
+        return [str(item['_id']) for item in self.mongo['user_base'].find()]

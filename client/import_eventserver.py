@@ -8,7 +8,7 @@ import os
 
 import predictionio
 
-from data_source import DataSource
+from data_source import DataSource, MongoDataSource
 
 
 SEED = 3
@@ -59,7 +59,7 @@ def import_txt_events(client, dir):
     print "%s events are imported." % count
 
 
-def import_data_event(client, event_url, data_source):
+def import_data_events(client, data_source):
     assert isinstance(data_source, DataSource)
 
     users = data_source.list_users()
@@ -97,10 +97,12 @@ def import_data_event(client, event_url, data_source):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
-        description="Import sample data for similar product engine")
+    parser = argparse.ArgumentParser(description='Import sample data for recommendation engine')
     parser.add_argument('--access_key', default='invald_access_key')
-    parser.add_argument('--url', default="http://localhost:7070")
+    parser.add_argument('--url', default='http://localhost:7070')
+    parser.add_argument('--source', default='file', help='can be mongo|file default is file')
+    parser.add_argument('--mongo', default='mongodb://localhost:27017/simplr')
+    parser.add_argument('--feature_file', default='feature.txt', help='store some information used by normalize data')
     parser.add_argument('--dir', default="./data")
 
     args = parser.parse_args()
@@ -111,4 +113,7 @@ if __name__ == '__main__':
         url=args.url,
         threads=5,
         qsize=500)
-    import_txt_events(client, args.dir)
+    if args.source == 'mongo':
+        import_data_events(client, MongoDataSource(args.mongo, args.feature_file))
+    else:
+        import_txt_events(client, args.dir)
