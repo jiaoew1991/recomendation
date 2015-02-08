@@ -8,7 +8,7 @@ from data_source import MongoDataSource
 from recommender import Recommender
 
 
-SERVER_URL = 'localhost:8000'
+SERVER_URL = 'http://localhost:8000'
 MONGO_URL = 'mongodb://localhost:27017/simplr'
 FEATURE_FILE = 'feature.txt'
 
@@ -26,7 +26,7 @@ class TestRecommender(TestCase):
         remove(FEATURE_FILE)
 
     def test_recommend_exist(self):
-        print self.client.recommend(self.data_source.list_users()[0]['_id'])
+        print self.client.recommend(self.data_source.list_users()[0])
 
 if __name__ == '__main__':
     unittest.main()

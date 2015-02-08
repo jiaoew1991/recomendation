@@ -3,6 +3,7 @@ __author__ = 'jiaoew'
 from abc import ABCMeta, abstractmethod
 from datetime import datetime
 from time import mktime
+from bson.objectid import ObjectId
 import json
 
 from pymongo import MongoClient
@@ -106,8 +107,8 @@ class MongoDataSource(DataSource):
             'verify_edu': {'up': 1, 'down': 0},
             'verify_real': {'up': 1, 'down': 0},
             'verify_avatar': {'up': 1, 'down': 0},
-            'join_time': {'up': mktime(datetime(2016, 1, 1)), 'down': mktime(datetime(2015, 1, 1))},
-            'birthday': {'up': mktime(datetime(2000, 1, 1)), 'down': mktime(datetime(1990, 1, 1))},
+            'join_time': {'up': mktime(datetime(2016, 1, 1).timetuple()), 'down': mktime(datetime(2015, 1, 1).timetuple())},
+            'birthday': {'up': mktime(datetime(2000, 1, 1).timetuple()), 'down': mktime(datetime(1990, 1, 1).timetuple())},
             'hometown': {'up': 1000, 'down': 0},
             'height': {'up': 210, 'down': 150},
             'weight': {'up': 100, 'down': 40},
@@ -119,10 +120,10 @@ class MongoDataSource(DataSource):
         }, open(self.feature_file, 'w'))
 
     def get_likes(self, user_id):
-        return [item['to'] for item in self.mongo['like'].find({'user': user_id})]
+        return [item['to'] for item in self.mongo['like'].find({'user': ObjectId(user_id)})]
 
     def get_dislikes(self, user_id):
-        return [item['blocked_user'] for item in self.mongo['blockeduser'].find({'user': user_id})]
+        return [item['blocked_user'] for item in self.mongo['blockeduser'].find({'user': ObjectId(user_id)})]
 
     def get_features(self, user_id):
         origin_user = self.mongo['user'].find_one({'user': user_id})
