@@ -1,7 +1,7 @@
 __author__ = 'jiaoew'
 
 from abc import ABCMeta, abstractmethod
-from datetime import date
+from datetime import datetime
 from time import mktime
 import json
 
@@ -106,8 +106,8 @@ class MongoDataSource(DataSource):
             'verify_edu': {'up': 1, 'down': 0},
             'verify_real': {'up': 1, 'down': 0},
             'verify_avatar': {'up': 1, 'down': 0},
-            'join_time': {'up': mktime(date(2016, 1, 1)), 'down': mktime(date(2015, 1, 1))},
-            'birthday': {'up': mktime(date(2000, 1, 1)), 'down': mktime(date(1990, 1, 1))},
+            'join_time': {'up': mktime(datetime(2016, 1, 1)), 'down': mktime(datetime(2015, 1, 1))},
+            'birthday': {'up': mktime(datetime(2000, 1, 1)), 'down': mktime(datetime(1990, 1, 1))},
             'hometown': {'up': 1000, 'down': 0},
             'height': {'up': 210, 'down': 150},
             'weight': {'up': 100, 'down': 40},
@@ -140,7 +140,7 @@ class MongoDataSource(DataSource):
             'verify_real': origin_user['verify']['real'],
             'verify_avatar': origin_user['verify']['avatar'],
             'join_time': join_time,
-            'birthday': mktime(date(*profile['birthday'].split('-')).timetuple()),
+            'birthday': mktime(datetime(*profile['birthday'].split('-')).timetuple()),
             'hometown': hash(profile['hometown']) % 1000,
             'height': profile['height'],
             'weight': profile['weight'],
