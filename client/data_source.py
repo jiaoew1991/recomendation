@@ -1,6 +1,7 @@
 __author__ = 'jiaoew'
 
 from abc import ABCMeta, abstractmethod
+from os import path
 from datetime import datetime
 from time import mktime
 import json
@@ -64,6 +65,8 @@ class MongoDataSource(DataSource):
         self.mongo = MongoClient(url)['simplr']
         self._get_constants()
         self.feature_file = feature_file
+        if not path.exists(feature_file):
+            self.save_bounds()
 
     def _get_constants(self):
         self.schools = {s['_id']: idx + 1 for idx, s in enumerate(self.mongo['school'].find())}
