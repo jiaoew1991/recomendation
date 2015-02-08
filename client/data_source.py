@@ -158,7 +158,8 @@ class MongoDataSource(DataSource):
             'verify_real': origin_user['verify']['real'],
             'verify_avatar': origin_user['verify']['avatar'],
             'join_time': join_time,
-            'birthday': mktime(datetime(*map(int, profile['birthday'].split('-'))).timetuple()),
+            'birthday': mktime(datetime(*map(int, profile['birthday'].split('-'))).timetuple()) if profile[
+                'birthday'] else 0,
             'hometown': hash(profile['hometown']) % 1000,
             'height': profile['height'],
             'weight': profile['weight'],
