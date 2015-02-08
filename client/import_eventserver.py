@@ -2,15 +2,19 @@
 Import sample data for similar product engine
 """
 
-import predictionio
 import argparse
 import random
 import os
 
+import predictionio
+
+from data_source import DataSource
+
+
 SEED = 3
 
 
-def import_events(client, dir):
+def import_txt_events(client, dir):
     random.seed(SEED)
     count = 0
     print client.get_status()
@@ -55,6 +59,43 @@ def import_events(client, dir):
     print "%s events are imported." % count
 
 
+def import_data_event(client, event_url, data_source):
+    assert isinstance(data_source, DataSource)
+
+    users = data_source.list_users()
+    for user_id in users:
+        print 'set user {}'.format(user_id)
+        client.create_event(
+            event="$set",
+            entity_type="user",
+            entity_id=user_id
+        )
+        client.create_event(
+            event="$set",
+            entity_type="item",
+            entity_id=user_id,
+            properties={
+                "profiles": map(float, data_source.get_features(user_id))
+            }
+        )
+        likes = data_source.get_likes(user_id)
+        [client.create_event(
+            event="like",
+            entity_type="user",
+            entity_id=user_id,
+            target_entity_type="item",
+            target_entity_id=item_id
+        ) for item_id in likes]
+        dislikes = data_source.get_dislikes(user_id)
+        [client.create_event(
+            event="dislike",
+            entity_type="user",
+            entity_id=user_id,
+            target_entity_type="item",
+            target_entity_id=item_id
+        ) for item_id in dislikes]
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Import sample data for similar product engine")
@@ -70,4 +111,4 @@ if __name__ == '__main__':
         url=args.url,
         threads=5,
         qsize=500)
-    import_events(client, args.dir)
+    import_txt_events(client, args.dir)

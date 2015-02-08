@@ -131,7 +131,9 @@ class ALSAlgorithm(val ap: ALSAlgorithmParams) extends PAlgorithm[PreparedData, 
 
   private def featureDistance(org: Option[List[Double]], dst: List[Double]) = {
     org.map { lv =>
-      lv.zip(dst).map { case (a, b) => (a - b) * (a - b) }.reduce(_ + _)
+      lv.zip(dst).map { case (a, b) => a * b }.reduce(_ + _) /
+        Math.sqrt(lv.map(a => a * a).reduce(_ + _)) /
+        Math.sqrt(dst.map(a => a * a).reduce(_ + _))
     } getOrElse Double.MaxValue
   }
 }
