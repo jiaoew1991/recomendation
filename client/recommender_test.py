@@ -1,14 +1,15 @@
 __author__ = 'jiaoew'
 
 from os import remove
+import unittest
 from unittest import TestCase
 
 from data_source import MongoDataSource
 from recommender import Recommender
 
 
-SERVER_URL = 'omgthree.cloudapp.net:8000'
-MONGO_URL = 'mongo://@omgthree.cloudapp.net:27017'
+SERVER_URL = 'localhost:8000'
+MONGO_URL = 'mongodb://localhost:27017/simplr'
 FEATURE_FILE = 'feature.txt'
 
 
@@ -26,3 +27,6 @@ class TestRecommender(TestCase):
 
     def test_recommend_exist(self):
         print self.client.recommend(self.data_source.list_users()[0]['_id'])
+
+if __name__ == '__main__':
+    unittest.main()

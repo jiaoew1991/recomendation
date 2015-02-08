@@ -29,6 +29,7 @@ class Recommender():
             'size': size,
             'blackList': black_list
         })
+        print result
         return result
 
 
